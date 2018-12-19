@@ -1,0 +1,37 @@
+#version 430
+
+layout (local_size_x = 1, local_size_y = 1) in;
+
+//座標データ
+layout(rgba32f, binding = 0) readonly uniform image2D spacehash;
+layout(rgba32f, binding = 1) writeonly uniform image2D spacehash2;
+
+//uniform変数
+uniform vec2 resolution;
+uniform float block;
+uniform float cstep;
+uniform float offset;
+
+void main() {
+	
+	//質点の番号に対応するテクスチャ座標を算出
+	vec2 data0_ID2 = gl_GlobalInvocationID.xy;
+	float idx = data0_ID2.x + data0_ID2.y * resolution.x;
+
+	//ソートの向き，比較対象の向きを算出
+	float csign = (mod(idx, cstep) < offset) ? 1.0f : -1.0f;
+	float cdir  = (mod(floor(idx / block ), 2) < 0.5f) ? 1.0f : -1.0f;
+
+	//レンダリング位置の画素を読み込む
+	vec4 data0 = imageLoad(spacehash,ivec2(data0_ID2));
+	data0.zw = vec2(0.0);
+	//ソート対象の画素を読み込む
+	float adress = csign * offset + idx;
+	ivec2 ad2 = ivec2(mod(adress, resolution.x), floor(adress/resolution.x));
+	vec4 data1 = imageLoad(spacehash,ad2);
+
+	vec4 min = (data0.x < data1.x) ? data0 : data1;
+	vec4 max = (data0.x < data1.x) ? data1 : data0;
+	vec4 dst = (csign * cdir > 0.0f) ? min : max;
+	imageStore( spacehash2, ivec2(data0_ID2), dst);
+}

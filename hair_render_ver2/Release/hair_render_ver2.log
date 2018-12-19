@@ -1,0 +1,9 @@
+﻿  objloader.cpp
+LINK : warning LNK4098: defaultlib 'LIBCMT' は他のライブラリの使用と競合しています。/NODEFAULTLIB:library を使用してください。
+  コード生成しています。
+  3 of 2870 functions ( 0.1%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    22 functions had inline decision re-evaluated but remain unchanged
+  コード生成が終了しました。
+glew32s.lib(glew.obj) : warning LNK4099: PDB 'glew_static.pdb' が 'glew32s.lib(glew.obj)' で、または 'C:\Users\nishi\source\repos\hair_render_ver2\Release\glew_static.pdb' に見つかりません。デバッグ情報がないものとして、オブジェクトにリンクします。
+  hair_render_ver2.vcxproj -> C:\Users\nishi\source\repos\hair_render_ver2\Release\hair_render_ver2.exe

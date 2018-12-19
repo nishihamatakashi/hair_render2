@@ -1,0 +1,198 @@
+#version 430
+
+layout (local_size_x = 1, local_size_y = 1) in;
+
+//座標データ
+layout(rgba32f, binding = 0) restrict uniform imageBuffer position;
+
+//速度データ
+layout(rgba32f, binding = 1) restrict uniform imageBuffer velocity;
+
+//力データ
+layout(rgba32f, binding = 2) restrict uniform imageBuffer force;
+
+//空間データ
+layout(rgba32f, binding = 3) restrict uniform image3D space;
+
+//uniform変数
+uniform float radius;		//頭の半径
+uniform float hlength;		//髪の長さ
+uniform float knots;		//節点の数
+uniform ivec2 resolution;	//テクスチャの解像度
+uniform float cnum;
+uniform float clen;
+uniform float hardness1;	//髪の硬さ
+uniform float hardness2;
+uniform float adhesion;
+uniform int type;
+uniform vec3 move_force;
+uniform vec3 spherepos;
+
+int SphereHair = 5;
+int PlaneHair = 6;
+
+//係数
+float dt = 1.0f / 20.0f;		//Δt
+const float c = 1.0f;		//ダンパ係数
+const vec3 gravity = vec3(0.0,-0.98,0.0);
+const float m = 3.0f * hlength * (1.0f + hardness2);
+const float w_max = 1.0f;
+//空間分割登録処理
+vec3 setSpace_Hash(float x, float y, float z, int cell_num, float length) 
+{
+	//空間の端の座標
+	float f[3] = {-length,-length ,-length };
+	float fm[3] = { length ,length ,length };
+
+	//格子の一片の長さ
+	float cl_x, cl_y, cl_z;
+	
+	//格子座標
+	int cp_x, cp_y, cp_z;
+
+	cl_x = abs(fm[0] - f[0]) / float(cell_num);
+	cl_y = abs(fm[1] - f[1]) / float(cell_num);
+	cl_z = abs(fm[2] - f[2]) / float(cell_num);
+
+	cp_x = int(abs(x - f[0]) / cl_x);
+	cp_y = int(abs(y - f[1]) / cl_y);
+	cp_z = int(abs(z - f[2]) / cl_z);
+
+	//出力するID情報
+	vec3 out_ID = vec3(cp_x,cp_y,cp_z);
+	
+	if (abs(x) > length || abs(y) > length || abs(z) > length)
+	{
+		return vec3(-1,-1,-1);
+	}
+
+	return out_ID;
+}
+
+//毛の硬さ計算
+vec3 calc_stress(vec3 p0, vec3 p1,float knotID)
+{
+	float l,l1,fs;
+	vec3 e;
+	vec3 d = (p1 - p0);
+	vec3 d1 = vec3(0.0,0.0,0.0);
+	
+	if(type == SphereHair){
+		d1 = p0;
+	}else if(type == PlaneHair)
+	{
+		d1 = vec3(0.0,0.0,1.0);
+	}
+	l = length(d);
+	l1 = length(d1);
+	vec3 f = vec3(0.0f,0.0f,0.0f);
+	
+	if(l != 0){
+		fs = -20.0f * hardness1 * (l - knotID * (hlength / knots)) / hlength;
+
+		e = d / l;
+		f = fs * e;
+	}
+
+	if(l1 != 0){
+		float par = ((knots - knotID)/knots) / hlength;
+		fs = 10.0f * hardness1 * par;
+
+		e = d1 / l1;
+		f += fs * e;
+	}
+	return f;
+}
+
+float setWater(vec3 pos0,float water)
+{
+	vec3 d = pos0 - spherepos;
+	float l = length(d);
+	float w = step(l,0.2f) * 0.1f * step(water,w_max);
+	return w;
+}
+
+//走査線分を用いた空間登録
+void setLinerDensity(vec3 pos0,ivec3 sID0,ivec3 sID1,float water0,float water1)
+{
+	vec3 dir = sID1 - sID0;
+	float l = int(length(dir));
+	float cl = clen / cnum;
+	for(float i = 0.0;i < l ; i+=cl)
+	{
+		ivec3 n = sID0 + ivec3(dir * i);
+		vec3 cp = ((n - (0.5 * cnum)) / cnum) * clen * 0.5f;
+		vec4 space_data0 = imageLoad(space,n);
+		float par = float(i)/l;
+		space_data0.x += (1 - abs(pos0.x-cp.x)) * (1 - abs(pos0.y-cp.y)) * (1 - abs(pos0.z-cp.z));
+		space_data0.y += par * (water1) + (1.0f - par) * (water0);
+		space_data0.z += 1.0f;
+		imageStore( space,n,space_data0);
+	
+	}
+}
+
+//走査線分を用いた空間登録
+void setDensity(vec3 pos0,ivec3 sID0,float water0)
+{
+	vec4 space_data0 = imageLoad(space,sID0);
+	vec3 cp = ((sID0 - (0.5 * cnum)) / cnum) * clen * 0.5f;
+	space_data0.x += (1 - abs(pos0.x-cp.x)) * (1 - abs(pos0.y-cp.y)) * (1 - abs(pos0.z-cp.z));
+	space_data0.y += water0;
+	space_data0.z += 1.0f;
+	imageStore( space,sID0,space_data0);
+}
+
+void main() {
+	
+	//質点番号を算出
+	ivec2 pos0_ID2 = ivec2(gl_GlobalInvocationID.xy);
+	int pos0_ID = pos0_ID2.x + pos0_ID2.y * resolution.x;	//処理中の質点
+	int pos1_ID = pos0_ID - 1;								//一つ手前の質点
+
+	//positionテクスチャから座標を読み取る(wはknotsID)
+	vec4 pos0 = imageLoad(position,pos0_ID);
+	vec4 pos1 = imageLoad(position,pos1_ID);
+
+	//根元の質点を読み取る
+	int pos2_ID = pos0_ID - int(pos0.w);
+	vec4 pos2 = imageLoad(position,pos2_ID);
+	
+	//vector,force,fieldからそれぞれ値を抽出
+	vec4 vel0 = imageLoad(velocity,pos0_ID);
+	vec4 vel1 = imageLoad(velocity,pos1_ID);
+	vec4 force0 = imageLoad(force,pos0_ID);
+	
+	//空間のIDを算出
+	vec3 sID03 = setSpace_Hash(pos0.x,pos0.y,pos0.z,int(cnum),clen);
+	vec3 sID13 = setSpace_Hash(pos1.x,pos1.y,pos1.z,int(cnum),clen);
+
+	//力の計算
+	vec3 f = calc_stress(pos2.xyz,pos0.xyz,pos0.w) + force0.xyz + move_force;	//毛の応力
+
+	//力，速度より最初の頂点位置を算出
+	vec3 pre_pos0 = pos0.xyz;
+	pos0.xyz = pre_pos0 + (vel0.xyz * dt + (f + gravity * (m + 1.0f * vel0.w)) * dt * dt);
+
+	//拘束条件1：頭の部分に衝突判定
+	if(type == SphereHair){
+		float p0d = length(pos0.xyz);
+		float fb = step(p0d,radius);
+		pos0.xyz = pos0.xyz + fb * (radius - p0d) * pos0.xyz / p0d;
+	}
+	//拘束条件2：毛の長さは一定
+	vec3 direct = normalize(pos0.xyz - pos1.xyz);
+	pos0.xyz = pos1.xyz + direct * (hlength / knots);
+
+	//速度を算出
+	vel0.xyz = (pos0.xyz - pre_pos0.xyz);
+	//根元なら移動させない
+	pos0.xyz = step(1.5, pos0.w) * pos0.xyz + step(pos0.w , 1.5) * pre_pos0;
+	vel0.w += setWater(pos0.xyz,vel0.w);
+
+	//密度場の計算
+	setLinerDensity(pos0.xyz,ivec3(sID03),ivec3(sID13),vel0.w,vel1.w);
+	imageStore( position, pos0_ID, pos0);
+	imageStore( velocity, pos0_ID, vel0);
+	imageStore(force,pos0_ID,vec4(0.0,0.0,0.0,pos0.w));
+}
