@@ -32,7 +32,7 @@ float eta = 0.15f;
 void main()
 {
   // 元のボリュームの濃度と閾値の差
-  float v = texture(vmap, tv).g * 0.01f;
+  float v = texture(vmap, tv).r * 0.01f;
 
   // 濃度が閾値以下ならフラグメントを捨てる
   if (v < threshold) discard;

@@ -172,6 +172,13 @@
     <None Include="hair_collision.comp" />
     <None Include="hair_fluid.comp" />
     <None Include="hair_FTL.comp" />
+    <None Include="JS_add_data.comp" />
+    <None Include="JS_advect.comp" />
+    <None Include="JS_diffuse.comp" />
+    <None Include="JS_divergence.comp" />
+    <None Include="JS_project.comp" />
+    <None Include="JS_projvel.comp" />
+    <None Include="JS_set_bnd.comp" />
     <None Include="line_hair.geom" />
     <None Include="marschener.frag" />
     <None Include="mesh.frag" />

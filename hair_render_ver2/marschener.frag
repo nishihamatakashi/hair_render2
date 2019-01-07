@@ -46,17 +46,21 @@ uniform sampler2D smap;		// specular map
 uniform sampler2D depthmap;
 uniform samplerCube cubemap;//cube map
 uniform mat4 texFlag;
-
+uniform float wetflag;
+uniform float alpha_dec;
 in vec2 tc;
 in vec3 nl;
 in vec3 nv;
 in vec3 ntt;
 in float h;
+in float water;
 
 const float PI = 3.141592;
 const float eta = 1.55f;		//コルテックス層，メデュラ層の屈折率
 vec3 sigma_a = vec3(sigma);	//毛内部の吸収係数
-
+const float h_eta = 1.55f;			//毛髪の屈折率
+const float a_eta = 1.0f;			//空気の屈折率
+const float w_eta = 1.33f;			//水の屈折率
 float SafeSqrt(float x) {
 	return sqrt(max(float(0.0), x));
 }
@@ -184,8 +188,59 @@ float AbsCosThetaForHair(vec3 w)
 	return sqrt(w.z * w.z + w.y * w.y);
 }
 
+//Gr
+float Gaussian_Microfacet(float aw,vec3 H,vec3 T)
+{
+	float HT = dot(H,T);
+	float HN = sqrt(1 - HT*HT);
+	float gr = 1.0f / (2.0f * sqrt(PI) * aw) * exp((-2.0f * (HT/aw)*(HT/aw))/(1 + HN));
+	return gr;
+}
+
+//Fr
+float Frenel(float weta,vec3 H,vec3 V)
+{
+	float f_eta = ((weta - 1)*(weta - 1))/((weta + 1)*(weta + 1));
+	float fr = f_eta + (1 - f_eta) * pow((1 - dot(V,H)),5);
+	return fr;
+}
+
+//Ft_verFr
+float Frenel_verFt(float eta,vec3 H,vec3 V)
+{
+	float f_eta = 4 * eta / ((eta+1)*(eta+1));
+	float fr = f_eta + (1 - f_eta) * pow((1 - dot(V,H)),5);
+	return fr;
+}
+
+//wardの吸収項
+float absorb(vec3 H,vec3 V)
+{
+	float wh_eta = h_eta / w_eta;
+	float wa_eta = a_eta / w_eta;
+	float Fr = Frenel(w_eta,H,V);
+	float Ft = Frenel_verFt(wh_eta,H,V);
+	float p = Frenel_verFt(wa_eta,H,V);
+	return 1.0f - 0.4f * (((1-Fr) * Ft) / (1 - (p * (1-Ft))));
+}
+
+float ward_brdf(vec3 nl,vec3 nv)
+{
+	float lt = dot(nl,ntt);
+	float lt2 = sqrt(1-lt*lt);
+	float vt = dot(nv,ntt);
+	float vt2 = sqrt(1-vt*vt);
+	float costheta = lt2 * vt2 - lt * vt;
+	vec3 nh = normalize(nl + nv);
+	float aw = alpha * (1.0 - min(water,1.0f) * alpha_dec);
+	float gr = Gaussian_Microfacet(aw,nh,ntt);
+	float fr = Frenel(w_eta,nh,nv);
+	float Is = fr * gr / (costheta * costheta);
+	return Is;
+}
+
 //bsdf(wi：光の方向，wo：カメラの方向，h：)
-vec3 bsdf(vec3 wi,vec3 wo,float h)
+vec3 bsdf(vec3 wi,vec3 wo)
 {
 
 	float sinThetaO = wo.x;
@@ -255,12 +310,11 @@ vec3 bsdf(vec3 wi,vec3 wo,float h)
 	cosThetaIp = abs(cosThetaIp);
 	fsum += Mp(sinThetaIp,cosThetaIp,sinThetaO,cosThetaO,v.y) * ap1 * Np(phi,1,s,gammaO,gammaT);
 	fsum += Mp(sinThetaIp,cosThetaIp,sinThetaO,cosThetaO,v.z) * ap2 / (2.0f * PI);
-	
-	
+
 	if (cosThetaI > 0) {
 		fsum /= sqrt(wi.z * wi.z + wi.y * wi.y);
 	}
-	
+
 	return fsum;
 }
 
@@ -269,7 +323,7 @@ void main()
 
 	vec3 lc = lcolor;
 	vec3 nbb = vec3(-ntt.z,0.0,ntt.x);
-	vec3 nnn = cross(ntt,nbb);
+	vec3 nnn = cross(nbb,ntt);
 	mat3 Tan = transpose(mat3(ntt,nbb,nnn));
 	
 	vec3 nnl = (Tan * nl);
@@ -279,20 +333,29 @@ void main()
 	if(texFlag[0][0] == 1){ Dcolor = texture(dmap,tc); }
 
 	float a = Dcolor.a * transparency;
+	float ab = step(0.5f,water) * absorb(normalize(nl + nv),nv) + step(water,0.5f) * 1.0f;
 
 	//拡散反射光を計算
 	float lt = dot(nl, ntt);
 	float lt2 = sqrt(1.0 - lt * lt);
-
-	vec3 Idiff = lt2 * lc * Dcolor.rgb;
+	
+	vec3 Idiff = vec3(0);
+	vec3 Ispec = vec3(0);
+	vec3 Iamb = vec3(0);
 
 	//鏡面反射光を計算
-	vec3 Ispec =  bsdf(nnl,nnv,h) * kspec;
-	
-	//環境光を計算
-	vec3 Iamb = kamb * lc;
+	if(water > 0.0 && wetflag == 1){
+		Idiff = ab * lt2 * lc * Dcolor.rgb;
+		Ispec =  kspec * (ab * bsdf(nnl,nnv) + ward_brdf(nl,nv));
+		Iamb = ab * kamb * lc;
+	}else{
+		Idiff = lt2 * lc * Dcolor.rgb;
+		Ispec =  kspec * bsdf(nnl,nnv);
+		Iamb = kamb * lc;
+	}
 
 	//最終的な色を算出
-	vec4 output = vec4(Ispec +Idiff + Iamb,a);
+	vec4 output =  vec4(Ispec + Idiff + Iamb,a);
+	
 	fragment = output;
 }

@@ -14,6 +14,8 @@ layout(rgba32f, binding = 2) restrict uniform imageBuffer force;
 //‹óŠÔƒf[ƒ^
 layout(rgba32f, binding = 3) restrict uniform image3D space;
 
+layout(rgba32f, binding = 5) restrict uniform image3D fluid_vel;
+
 //uniform•Ï”
 uniform float radius;		//“ª‚Ì”¼Œa
 uniform float hlength;		//”¯‚Ì’·‚³
@@ -26,7 +28,10 @@ uniform float hardness2;
 uniform float adhesion;
 uniform int type;
 uniform vec3 move_force;
-uniform vec3 spherepos;
+uniform vec3 fluidpos;
+uniform vec3 fluidsize;
+uniform vec3 hairpos;
+uniform sampler3D fluid_dens;
 
 int SphereHair = 5;
 int PlaneHair = 6;
@@ -37,6 +42,7 @@ const float c = 1.0f;		//ƒ_ƒ“ƒpŒW”
 const vec3 gravity = vec3(0.0,-0.98,0.0);
 const float m = 3.0f * hlength * (1.0f + hardness2);
 const float w_max = 1.0f;
+
 //‹óŠÔ•ªŠ„“o˜^ˆ—
 vec3 setSpace_Hash(float x, float y, float z, int cell_num, float length) 
 {
@@ -87,39 +93,54 @@ vec3 calc_stress(vec3 p0, vec3 p1,float knotID)
 	l1 = length(d1);
 	vec3 f = vec3(0.0f,0.0f,0.0f);
 	
-	if(l != 0){
-		fs = -20.0f * hardness1 * (l - knotID * (hlength / knots)) / hlength;
+	fs = -20.0f * hardness1 * (l - knotID * (hlength / knots)) / hlength;
+	e = d / (l + 0.00001f);
+	f = fs * e;
+	
+	float par = ((knots - knotID)/knots) / hlength;
+	fs = 10.0f * 0.05f * par;
 
-		e = d / l;
-		f = fs * e;
-	}
+	e = d1 / (l1 + 0.00001f);
+	f += fs * e;
 
-	if(l1 != 0){
-		float par = ((knots - knotID)/knots) / hlength;
-		fs = 10.0f * hardness1 * par;
-
-		e = d1 / l1;
-		f += fs * e;
-	}
 	return f;
+}
+
+vec3 addFluidForce(vec3 pos0)
+{
+	pos0 = ((pos0 + hairpos) - fluidpos);
+	vec3 pos0ID = (pos0 / clen * 0.5f) + 0.5f;
+	float d = texture(fluid_dens,pos0ID).r;
+	vec3 sID03 = setSpace_Hash(pos0.x,pos0.y,pos0.z, 32, 1.0f);
+	vec3 f = imageLoad(fluid_vel,ivec3(sID03)).xyz * step(1.0f,d);
+	
+	//vec3 cp = ((sID03 - (0.5 * 32)) / 32) * 1.0f * 0.5f;
+	//vec3 penalty_f = f + (pos0 - cp);
+	//penalty_f = 0.5f * normalize(penalty_f);
+	//imageStore(fluid_vel,ivec3(sID03),vec4(penalty_f,0.0f));
+	
+	return 2.0f * f;
 }
 
 float setWater(vec3 pos0,float water)
 {
-	vec3 d = pos0 - spherepos;
-	float l = length(d);
-	float w = step(l,0.2f) * 0.1f * step(water,w_max);
+	vec3 pos0ID = (((pos0 + hairpos) - fluidpos) / clen * 0.5f) + 0.5f;
+	float d = texture(fluid_dens,pos0ID).r;
+	float w = step(1.5f,d) * step(water,w_max + 0.5f);
 	return w;
 }
 
 //‘–¸ü•ª‚ğ—p‚¢‚½‹óŠÔ“o˜^
 void setLinerDensity(vec3 pos0,ivec3 sID0,ivec3 sID1,float water0,float water1)
 {
-	vec3 dir = sID1 - sID0;
-	float l = int(length(dir));
-	float cl = clen / cnum;
-	for(float i = 0.0;i < l ; i+=cl)
-	{
+	if(sID0.x > 0.0 ||sID1.x > 0.0){
+		vec3 dir = sID1 - sID0;
+		float l = int(length(dir));
+		float cl = clen / cnum * 400.0f;
+		water0 = max((water0 - (w_max)),0);
+		water1 = max((water1 - (w_max)),0);
+		
+		int i = 0;
 		ivec3 n = sID0 + ivec3(dir * i);
 		vec3 cp = ((n - (0.5 * cnum)) / cnum) * clen * 0.5f;
 		vec4 space_data0 = imageLoad(space,n);
@@ -128,7 +149,6 @@ void setLinerDensity(vec3 pos0,ivec3 sID0,ivec3 sID1,float water0,float water1)
 		space_data0.y += par * (water1) + (1.0f - par) * (water0);
 		space_data0.z += 1.0f;
 		imageStore( space,n,space_data0);
-	
 	}
 }
 
@@ -168,7 +188,7 @@ void main() {
 	vec3 sID13 = setSpace_Hash(pos1.x,pos1.y,pos1.z,int(cnum),clen);
 
 	//—Í‚ÌŒvZ
-	vec3 f = calc_stress(pos2.xyz,pos0.xyz,pos0.w) + force0.xyz + move_force;	//–Ñ‚Ì‰—Í
+	vec3 f = calc_stress(pos2.xyz,pos0.xyz,pos0.w) + force0.xyz + move_force + addFluidForce(pos0.xyz);	//–Ñ‚Ì‰—Í
 
 	//—ÍC‘¬“x‚æ‚èÅ‰‚Ì’¸“_ˆÊ’u‚ğZo
 	vec3 pre_pos0 = pos0.xyz;

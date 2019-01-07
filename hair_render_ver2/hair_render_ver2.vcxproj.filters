@@ -61,6 +61,9 @@
     <Filter Include="shader_file\draw_shader\skybox">
       <UniqueIdentifier>{2a168b12-e137-4e6b-9ef6-76536a7bc6a5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="shader_file\compute_shader\fluid">
+      <UniqueIdentifier>{1c269d41-0cbb-43a3-ae31-dd4e8f9e835d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="object3d.cpp">
@@ -262,6 +265,27 @@
     </None>
     <None Include="water.frag">
       <Filter>shader_file\draw_shader\volume</Filter>
+    </None>
+    <None Include="JS_add_data.comp">
+      <Filter>shader_file\compute_shader\fluid</Filter>
+    </None>
+    <None Include="JS_advect.comp">
+      <Filter>shader_file\compute_shader\fluid</Filter>
+    </None>
+    <None Include="JS_diffuse.comp">
+      <Filter>shader_file\compute_shader\fluid</Filter>
+    </None>
+    <None Include="JS_divergence.comp">
+      <Filter>shader_file\compute_shader\fluid</Filter>
+    </None>
+    <None Include="JS_project.comp">
+      <Filter>shader_file\compute_shader\fluid</Filter>
+    </None>
+    <None Include="JS_projvel.comp">
+      <Filter>shader_file\compute_shader\fluid</Filter>
+    </None>
+    <None Include="JS_set_bnd.comp">
+      <Filter>shader_file\compute_shader\fluid</Filter>
     </None>
   </ItemGroup>
 </Project>

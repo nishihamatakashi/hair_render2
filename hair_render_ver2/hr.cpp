@@ -186,6 +186,6 @@ bool HR::shouldClose()
 {
 	//skybox‚Ì•\Ž¦
 	bool frag = window.shouldClose();
-	//shader_manager.getShader<SkyboxShader>("sbs").draw(skybox, camera);
+	shader_manager.getShader<SkyboxShader>("sbs").draw(skybox, camera);
 	return frag;
 }

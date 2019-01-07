@@ -25,11 +25,12 @@ int Hemi = 3;
 int Sun = 4;
 
 out vec2 tc;
+out vec3 nnn;
 out vec3 nv;
 out vec3 nl;
 out vec3 ntt;
 out float h;
-
+out float water;
 uniform float weight;
 uniform float corners;
 uniform float sharp;
@@ -125,9 +126,13 @@ void main(){
 			h = length(hnl) * (step(0.0f, sigma) - 0.5f) * 2.0f;
 
 			//接線の算出
-			ntt = i > 2 ? nt2 : nt1;
+			ntt = i <= 1 ? nt1 : nt2;
 			ntt = p0.w == 0.0 ? nt2 : ntt;
 			ntt = (adjoint * vec4(ntt,1.0)).xyz;
+
+			//法線の算出
+			nnn = i < 2 ? out_p.xyz - p0.xyz.xyz : out_p.xyz - p2.xyz;
+			nnn = normalize(nnn);
 
 			//テクスチャ座標の算出
 			float y0 = 1.0f - p0.w / knots;
@@ -138,6 +143,9 @@ void main(){
 			texture.x = i % 2 == 0 ? x0 : x1;
 			texture.y = i > 1 ? y1 : y0;
 			tc = texture;
+			
+			//水の設定
+			water = i <= 1 ?gl_in[1].gl_PointSize : gl_in[2].gl_PointSize;
 
 			gl_Position = proj * pv;
 			EmitVertex();

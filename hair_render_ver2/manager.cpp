@@ -42,19 +42,49 @@ void Object3DManager::showResource()
 				x.second->setScale(sca[0], sca[1], sca[2]);
 				if (x.second->getType() == SphereHair || x.second->getType() == PlaneHair)
 				{
+					//–Ñ”¯‚Ì’·‚³
 					ImGui::SliderFloat("hlength", &x.second->getParameter()[2], 0.0f, 1.5f);
+
+					//d‚³
 					ImGui::SliderFloat("hardness1", &x.second->getParameter()[6], 0.0f, 2.0f);
+
+					//d‚³
 					ImGui::SliderFloat("m", &x.second->getParameter()[7], 0.0f, 10.0f);
-					ImGui::SliderFloat("adhesion", &x.second->getParameter()[8], -2.0f, 2.0f);
+
+					//ˆø—Í
+					ImGui::SliderFloat("adhesion", &x.second->getParameter()[8], -1.0f, 1.0f);
+
+					//‹ÂŠpŠgŽU
 					ImGui::SliderFloat("beta_n", &x.second->getParameter()[10], 0.0f, 1.0f);
+
+					//•ûˆÊŠpŠgŽU
 					ImGui::SliderFloat("beta_m", &x.second->getParameter()[11], 0.0f, 1.0f);
+
+					//ƒIƒtƒZƒbƒgŠp“x
 					ImGui::SliderFloat("alpha", &x.second->getParameter()[12], 0.0f, 1.0f);
+
+					//‹zŽûŒW”
 					ImGui::SliderFloat("sigma", &x.second->getParameter()[13], 0.0f, 1.0f);
+
+					//‘¾‚³
 					ImGui::SliderFloat("weight", &x.second->getParameter()[9], 0.001f, 0.1f);
-					int angle = int(x.second->getParameter()[14]); ImGui::SliderInt("corners", &angle, 2, 8);
+
+					//Šp”
+					int angle = int(x.second->getParameter()[14]);
+					ImGui::SliderInt("corners", &angle, 2, 8);
 					x.second->getParameter()[14] = float(angle);
+
+					//‰s‚³
 					ImGui::SliderFloat("sharp", &x.second->getParameter()[15], 0.001f, 1.0f);
-					x.second->getParameter()[5] = x.second->getParameter()[2] + x.second->getParameter()[3];
+
+					//”G‚ê‚½‰A‰e•t‚¯ƒtƒ‰ƒO
+					int wetflag = int(x.second->getParameter()[16]);
+					ImGui::SliderInt("wet_shade", &wetflag, 0, 1);
+					x.second->getParameter()[16] = wetflag;
+
+					//ƒIƒtƒZƒbƒgŠp“x‚Ì•Ï‰»—Ê
+					ImGui::SliderFloat("alpha_dec", &x.second->getParameter()[17], 0.0f, 1.0f);
+					ImGui::SliderFloat("clength", &x.second->getParameter()[5], x.second->getParameter()[2], 5.0f);
 				}
 				else if (x.second->getType() == Volume || x.second->getType() == VCube || x.second->getType() == VRandom)
 				{

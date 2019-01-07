@@ -21,87 +21,64 @@ uniform float clen;
 uniform float adhesion;
 uniform sampler3D space;
 
-float w_max = 0.001f;
-
-//‹óŠÔ•ªŠ„“o˜^ˆ—
-vec3 setSpace_Hash(float x, float y, float z, int cell_num, float length) 
-{
-	//‹óŠÔ‚Ì’[‚ÌÀ•W
-	float f[3] = {-length,-length ,-length };
-	float fm[3] = { length ,length ,length };
-
-	//Šiq‚Ìˆê•Ğ‚Ì’·‚³
-	float cl_x, cl_y, cl_z;
-	
-	//ŠiqÀ•W
-	int cp_x, cp_y, cp_z;
-
-	cl_x = abs(fm[0] - f[0]) / float(cell_num);
-	cl_y = abs(fm[1] - f[1]) / float(cell_num);
-	cl_z = abs(fm[2] - f[2]) / float(cell_num);
-
-	cp_x = int(abs(x - f[0]) / cl_x);
-	cp_y = int(abs(y - f[1]) / cl_y);
-	cp_z = int(abs(z - f[2]) / cl_z);
-
-	//o—Í‚·‚éIDî•ñ
-	vec3 out_ID = vec3(cp_x,cp_y,cp_z);
-	
-	if (abs(x) > length || abs(y) > length || abs(z) > length)
-	{
-		return vec3(-1,-1,-1);
-	}
-
-	return out_ID;
-}
+float w_max = 1.0f;
 
 //•ªqŠÔ—Í‚ğl—¶‚µ‚½…‚Ì“`”Àƒ‚ƒfƒ‹
-vec3 setSurfacetenshon(vec3 pos0,vec3 sID03)
+vec3 setSurfacetenshon(vec3 pos0)
 {
-	float cl = clen/cnum;
+	float cl = 3 * clen/cnum;
 	vec3 s000 = vec3(pos0) / clen;
+	
 	vec3 s100 = s000 + vec3(cl,0,0);
 	vec3 s200 = s000 + vec3(-cl,0,0);
 	vec3 s010 = s000 + vec3(0,cl,0);
 	vec3 s020 = s000 + vec3(0,-cl,0);
 	vec3 s001 = s000 + vec3(0,0,cl);
 	vec3 s002 = s000 + vec3(0,0,-cl);
+	
+	float sd000 = texture(space,s000 * 0.5f + 0.5f).g;
+	float sd100 = texture(space,s100 * 0.5f + 0.5f).g;
+	float sd200 = texture(space,s200 * 0.5f + 0.5f).g;
+	float sd010 = texture(space,s010 * 0.5f + 0.5f).g;
+	float sd020 = texture(space,s020 * 0.5f + 0.5f).g;
+	float sd001 = texture(space,s001 * 0.5f + 0.5f).g;
+	float sd002 = texture(space,s002 * 0.5f + 0.5f).g;
 
-	vec4 sd000 = texture(space,s000 * 0.5f + 0.5f);
-	vec4 sd100 = texture(space,s100 * 0.5f + 0.5f);
-	vec4 sd200 = texture(space,s200 * 0.5f + 0.5f);
-	vec4 sd010 = texture(space,s010 * 0.5f + 0.5f);
-	vec4 sd020 = texture(space,s020 * 0.5f + 0.5f);
-	vec4 sd001 = texture(space,s001 * 0.5f + 0.5f);
-	vec4 sd002 = texture(space,s002 * 0.5f + 0.5f);
+	float thr = 1.0f;
+	sd000 = step(thr,sd000)*sd000;
+	sd100 = step(thr,sd100)*sd100;
+	sd200 = step(thr,sd200)*sd200;
+	sd010 = step(thr,sd010)*sd010;
+	sd020 = step(thr,sd020)*sd020;
+	sd001 = step(thr,sd001)*sd001;
+	sd002 = step(thr,sd002)*sd002;
+
+	//…“¯m‚Ì•ªqŠÔ—Í
+	float dwx = (sd100 - sd200) / cl;
+	float dwy = (sd010 - sd020) / cl;
+	float dwz = (sd001 - sd002) / cl;
+	vec3 stfw = vec3(dwx,dwy,dwz);
 
 	vec3 f = vec3(0.0f);
-
-	
-	//…“¯m‚Ì•ªqŠÔ—Í
-	float dwx = (sd100.y - sd200.y) / cl;
-	float dwy = (sd010.y - sd020.y) / cl;
-	float dwz = (sd001.y - sd002.y) / cl;
-	vec3 stfw = vec3(dwx,dwy,dwz);
 	float lw = length(stfw);
-	f += step(10.0f,lw) * (stfw / (lw + 0.0001f)) * ( min(lw,1.1)) * adhesion;
+	f += (stfw / (lw + 0.0001f)) * adhesion; 
+	//f += step(10.0f,lw) * (stfw / (lw + 0.0001f)) * ( min(lw,1.1)) * adhesion;
 	return f;
 }
 
 
 //…‚Ì“`”À
-float setWaterPropagation(vec3 pos0,vec3 pos1,vec3 pos2,vec3 water)
+float setWaterPropagation(vec4 pos0,vec3 pos1,vec3 pos2,float water)
 {
 	float dy01 = clamp(pos1.y - pos0.y,-0.5f,0.5f);
 	float dy02 = clamp(pos2.y - pos0.y,-0.5f,0.5f);
-	float w = water.x;
-	water.x = step(w_max,water.x) * water.x;
-	water.y = step(w_max,water.y) * water.y;
-	water.z = step(w_max,water.z) * water.z;
-	vec4 cd = texture(space,pos0 / clen * 0.5f + 0.5f);
-	w += dy01 < 0 ? dy01 * water.x : dy01 * water.y;
-	w += dy02 < 0 ? dy02 * water.x : dy02 * water.z;
-	w += 0.001f * (cd.y / (cd.x + 0.0001f));
+	float w = water;
+	
+	vec4 cd1 = texture(space,(pos1.xyz) / clen * 0.5f + 0.5f);
+	vec4 cd2 = texture(space,(pos2.xyz) / clen * 0.5f + 0.5f);
+	
+	w += 2.0f * adhesion * (cd1.y / (cd1.z + 0.0001f)) * step(w,w_max) * step(0.0,dy01) * step(0.5,pos0.w);
+	//w += 2.0f * adhesion * (cd2.y / (cd2.z + 0.0001f)) * step(w,w_max) * step(0.0,dy02) * step(pos0.w,knots);
 	return w;
 }
 
@@ -109,12 +86,13 @@ float setWaterPropagation(vec3 pos0,vec3 pos1,vec3 pos2,vec3 water)
 //Õ“ËŒvZ
 vec3 setForce(vec3 pos0,vec3 sID03)
 {
-
+	float cl = clen/cnum;
 	vec3 f = vec3(0.0);
 	vec3 cp = ((sID03 - (0.5 * cnum)) / cnum) * clen * 0.5f;
 	vec4 space_data0 = texture(space,pos0 / clen * 0.5f + 0.5f);
 	vec3 d = vec3(pos0.x-cp.x,pos0.y-cp.y ,pos0.z-cp.z);
-	f += d/length(d) * space_data0.x * 0.01f;
+	float par = space_data0.x * 0.008f;
+	f += d/length(d) * par;
 	return f;
 }
 
@@ -131,21 +109,16 @@ void main() {
 	vec4 pos1 = imageLoad(position,pos0_ID - 1);
 	vec4 pos2 = imageLoad(position,pos0_ID + 1);
 	vec4 vel0 = imageLoad(velocity,pos0_ID);
-	float water1 = imageLoad(velocity,pos0_ID - 1).w;
-	float water2 = imageLoad(velocity,pos0_ID + 1).w;
-
+	
 	vec4 force0 = imageLoad(force,pos0_ID);
 	
 	vec3 f = force0.xyz;
-	vec3 sID03 = setSpace_Hash(pos0.x,pos0.y,pos0.z,int(cnum),clen);
-	f += setForce(pos0.xyz,sID03);
-	f += setSurfacetenshon(pos0.xyz,sID03);
+	//f += setForce(pos0.xyz);
+	f += setSurfacetenshon(pos0.xyz);
 	f *= step(1.5, pos0.w);
 	
-	vec3 waters = vec3(vel0.w,water1,water2);
-	vel0.w = setWaterPropagation(pos0.xyz,pos1.xyz,pos2.xyz,waters);
-	vel0.w *= step(pos0.w , knots - 0.5) * step(1.5, pos0.w);
-
+	vel0.w = setWaterPropagation(pos0,pos1.xyz,pos2.xyz,vel0.w);
+	
 	imageStore( force, pos0_ID, vec4(f,pos0.w));
 	imageStore( velocity, pos0_ID, vel0);
 }

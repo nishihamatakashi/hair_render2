@@ -54,6 +54,5 @@ void main()
   vec3 Ispec = pow(max(dot(n, h), 0.0), kshi) * kspec;
 
   // フラグメントの色
-  //fragment = vec4((Idiff + Ispec).rgb, v * transparency);
-  fragment = vec4(v*0.01,0.0,0.0,transparency);
- }
+  fragment = vec4((Idiff + Ispec + kamb).rgb, v * transparency);
+}

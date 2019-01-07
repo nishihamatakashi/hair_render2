@@ -184,3 +184,34 @@ public:
 	const GLuint getVao() { return this->vao; }
 	const float getFovy() { return this->fovy; }
 };
+
+class Fluid3D : public Object3D
+{
+private:
+	int cell_size;
+	bool compress = true;
+	GLuint simulate_tex[6];
+	float parameter[10];
+
+	//追加用のデータ
+	std::vector<GLfloat> add_dens;
+	std::vector<GLfloat> add_vel;
+public:
+	float y_volume = 0.0f;
+	void loadObject3D(int size);
+	void shutdown() {
+		glDeleteTextures(6, this->simulate_tex);
+	};
+	void setVisc(float a) { parameter[0] = a; }
+	void setDiff(float a) { parameter[1] = a; }
+	void OnCompuress() { compress = true; }
+	void OffCompuress() { compress = false; }
+
+	GLuint *getSimulate_tex() { return this->simulate_tex; }
+	bool getCompress_flag() { return this->compress; }
+	const int getCell_size() { return cell_size; }
+	float *getParameter() { return parameter; }
+
+	std::vector<GLfloat> &getAdd_dens() { return this->add_dens; }
+	std::vector<GLfloat> &getAdd_vel() { return this->add_vel; }
+};

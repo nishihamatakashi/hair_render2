@@ -151,6 +151,7 @@ void MeshShader::draw(Basic3D& object, Light& light, Camera& camera)
 	_glError(__FILE__, __LINE__);
 }
 
+
 void HairShader::createShader(const char* vert, const char* frag, const char* geom, const char* tessc, const char* tesse)
 {
 	loadShader(vert, frag, geom, tessc, tesse);
@@ -196,7 +197,8 @@ void HairShader::createShader(const char* vert, const char* frag, const char* ge
 	loadUnilocate(32, "hlength", geom);
 	loadUnilocate(33, "roughness", frag);
 	loadUnilocate(34, "transparency", frag);
-
+	loadUnilocate(35, "wetflag", frag);
+	loadUnilocate(36, "alpha_dec", frag);
 }
 
 void HairShader::setUniform(Basic3D &object, Light &light, Material &material)
@@ -257,6 +259,8 @@ void HairShader::setUniform(Basic3D &object, Light &light, Material &material)
 
 	glUniform1f(unilocate[33], material.getRoughness());
 	glUniform1f(unilocate[34], material.getTransparency());
+	glUniform1f(unilocate[35], object.getParameter()[16]);
+	glUniform1f(unilocate[36], object.getParameter()[17]);
 }
 void HairShader::draw(Basic3D& object, Light& light, Camera& camera)
 {

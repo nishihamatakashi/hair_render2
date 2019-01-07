@@ -1,4 +1,9 @@
-﻿  object3d.cpp
-glew32sd.lib(glew.obj) : warning LNK4099: PDB 'glew_static.pdb' が 'glew32sd.lib(glew.obj)' で、または 'C:\Users\nishi\source\repos\hair_render_ver2\Debug\glew_static.pdb' に見つかりません。デバッグ情報がないものとして、オブジェクトにリンクします。
-  hair_render_ver2.vcxproj -> C:\Users\nishi\source\repos\hair_render_ver2\Debug\hair_render_ver2.exe
-  hair_render_ver2.vcxproj -> C:\Users\nishi\source\repos\hair_render_ver2\Debug\hair_render_ver2.pdb (Partial PDB)
+﻿  compute_shader.cpp
+  コードを生成中...
+  スキップ中... (関連する変更は検出されませんでした)
+  manager.cpp
+  main.cpp
+  hr.cpp
+glew32sd.lib(glew.obj) : warning LNK4099: PDB 'glew_static.pdb' が 'glew32sd.lib(glew.obj)' で、または 'C:\Users\nishi\OneDrive\デスクトップ\hair_render_ver2\Debug\glew_static.pdb' に見つかりません。デバッグ情報がないものとして、オブジェクトにリンクします。
+  hair_render_ver2.vcxproj -> C:\Users\nishi\OneDrive\デスクトップ\hair_render_ver2\Debug\hair_render_ver2.exe
+  hair_render_ver2.vcxproj -> C:\Users\nishi\OneDrive\デスクトップ\hair_render_ver2\Debug\hair_render_ver2.pdb (Partial PDB)

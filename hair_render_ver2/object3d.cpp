@@ -180,16 +180,19 @@ void Basic3D::loadObject3D(BASIC3D_TYPE t, SHADER_TYPE st, float hairs, float kn
 	parameter[5] = (length + radius);
 
 
-	parameter[6] = 0.3f;	//硬さ1
-	parameter[7] = 0.3f;	//硬さ2
-	parameter[8] = 0.1f;	//付着率
-	parameter[9] = 0.02f;	//太さ
+	parameter[6] = 0.1f;	//硬さ1
+	parameter[7] = 2.0f;	//硬さ2
+	parameter[8] = 0.0f;	//付着率
+	parameter[9] = 0.004f;	//太さ
 	parameter[10] = 1.0f;	//方位角方向の粗さ
 	parameter[11] = 0.3f;	//仰角方向の粗さ
 	parameter[12] = 0.02f;	//オフセット角度
-	parameter[13] = 0.0f;	//吸収係数
+	parameter[13] = 0.5f;	//吸収係数
 	parameter[14] = 5.0f;	//円柱の角数
 	parameter[15] = 1.0f;	//先のとがり具合
+	parameter[16] = 1.0f;	//濡れかどうかのフラグ
+	parameter[17] = 0.2f;	//濡れた際の滑らかさ
+
 	v.resize(unsigned int(parameter[4] * parameter[4] * parameter[4] * 4));
 
 	calcResolution(shape.vertices, resolution);
@@ -392,4 +395,75 @@ void SkyBox::setMatrix(Camera &camera)
 	adjoint(this->adjo, this->adjo);
 	const float *par = camera.getPerth_size();
 	loadPerspective(fovy, camera.getAspect(), par[1], par[0], this->proj);
+}
+
+void Fluid3D::loadObject3D(int size)
+{
+	parameter[0] = 1.0f;
+	parameter[1] = 1.0f;
+	cell_size = size;
+
+	//追加用データのメモリ確保
+	this->add_vel.resize(4 * cell_size * cell_size * cell_size);
+	this->add_dens.resize(4 * cell_size * cell_size * cell_size);
+
+
+	//計算用のテクスチャを4個の作成
+	glGenTextures(6, simulate_tex);
+
+	//現在の速度情報
+	glBindTexture(GL_TEXTURE_3D, simulate_tex[0]);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, cell_size, cell_size, cell_size, 0, GL_RGBA, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+
+	//1ステップ前の速度情報
+	glBindTexture(GL_TEXTURE_3D, simulate_tex[1]);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, cell_size, cell_size, cell_size, 0, GL_RGBA, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+
+	//現在の密度情報
+	glBindTexture(GL_TEXTURE_3D, simulate_tex[2]);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, cell_size, cell_size, cell_size, 0, GL_RGBA, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+
+	//1ステップ前の密度情報
+	glBindTexture(GL_TEXTURE_3D, simulate_tex[3]);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, cell_size, cell_size, cell_size, 0, GL_RGBA, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+
+	//ダイバージェンス情報
+	glBindTexture(GL_TEXTURE_3D, simulate_tex[4]);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, cell_size, cell_size, cell_size, 0, GL_RGBA, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+
+	//圧力情報
+	glBindTexture(GL_TEXTURE_3D, simulate_tex[5]);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, cell_size, cell_size, cell_size, 0, GL_RGBA, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
+
+	_glError(__FILE__, __LINE__);
 }
