@@ -1,0 +1,42 @@
+#version 430
+
+layout (local_size_x = 1, local_size_y = 1,local_size_z = 1) in;
+
+//速度データ
+layout(rgba32f, binding = 0) restrict uniform image3D now_vel;
+
+//入出力データ
+layout(rgba32f, binding = 1) restrict uniform image3D pressure;
+
+//uniform変数
+uniform float diff;		//拡散係数
+uniform float visc;		//粘性係数
+uniform int resolution;	//解像度
+uniform float dt;		//Δt
+
+void main() {
+	
+	//質点の番号に対応するテクスチャ座標を算出
+	ivec3 grid_ID = ivec3(gl_GlobalInvocationID.xyz);
+
+	//セルの数(計算するセル)
+	float cell = float(resolution - 2);
+	//圧力計算
+	float p0 = imageLoad(pressure,grid_ID + ivec3(-1,0,0)).x;
+	float p1 = imageLoad(pressure,grid_ID + ivec3(1,0,0)).x;
+	float p2 = imageLoad(pressure,grid_ID + ivec3(0,-1,0)).x;
+	float p3 = imageLoad(pressure,grid_ID + ivec3(0,1,0)).x;
+	float p4 = imageLoad(pressure,grid_ID + ivec3(0,0,-1)).x;
+	float p5 = imageLoad(pressure,grid_ID + ivec3(0,0,1)).x;
+
+	//圧力修正を行う
+	vec4 v = imageLoad(now_vel,grid_ID);
+	vec3 out_v;
+	out_v.x = v.x - 0.5f * cell * (p1 - p0);
+	out_v.y = v.y - 0.5f * cell * (p3 - p2);
+	out_v.z = v.z - 0.5f * cell * (p5 - p4);
+	
+	//計算した値を格納
+	imageStore(now_vel, grid_ID, vec4(out_v,0.0));
+	
+}
